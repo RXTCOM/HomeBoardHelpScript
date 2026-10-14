@@ -257,9 +257,31 @@ Gebruik voor Home Board niet je beheerderstoken. Het token hierboven kan alleen 
    - **Bucket**: `homeboard`
    - **API-token**: het token uit stap 9.1
 2. Tik op **Verbinding testen** en daarna op **Opslaan**.
-3. Voeg de andere apparaten daarna toe met een QR-code via **Ouders → Instellingen → Apparaat toevoegen met QR-code**. Dan hoef je het token maar één keer over te typen.
+3. Ga door met 9.3: dan kun je de andere apparaten toevoegen met een QR-code en een kwijtgeraakt apparaat ontkoppelen.
 
-### 9.3 Waar je zelf op let
+### 9.3 Apparaten toevoegen en ontkoppelen (app 1.44 of nieuwer)
+Om vanuit de app apparaten toe te voegen en te ontkoppelen, heeft het gezinsbord een **beheertoken** nodig. Dat maak je één keer zelf.
+
+1. **Beheertoken maken.** Ga naar **Load Data → API Tokens → Generate API Token → Custom API Token**:
+   - bij **Buckets**: `homeboard` **Read** en **Write**;
+   - bij **Other Resources** (of **Resources**): **Authorizations** en **Users**, allebei **Read** en **Write**;
+   - noem het precies **Home Board beheer** en kopieer het.
+
+   Of met de opdrachtregel:
+   ```
+   influx auth create --org <jouw-organisatie> --read-bucket <ID> --write-bucket <ID> \
+     --read-authorizations --write-authorizations --read-users --write-users --description "Home Board beheer"
+   ```
+   Dit token kan alleen toegang geven tot de bucket van Home Board, niet tot je andere gegevens.
+2. **Naam van het app-token controleren.** Heet het token uit 9.1 niet precies **Home Board app**? Klik in **API Tokens** op de naam en pas hem aan. Daaraan herkent de app de gedeelde toegang.
+3. **Koppelcode maken.** Zet deze regel in een teksteditor, met je eigen gegevens:
+   ```
+   {"kb":1,"u":"http://192.168.1.10:8086","o":"<organisatie>","b":"homeboard","t":"<app-token>","m":"<beheertoken>","r":"board"}
+   ```
+4. **Op het gezinsbord:** **Ouders → Server → Serververbinding wijzigen**, en plak de regel in het veld **Serveradres**. De app test de verbinding, slaat alles op en start opnieuw. Je gegevens blijven gewoon staan.
+5. Voeg daarna telefoons en tablets toe via **Ouders → Apparaat toevoegen**. Elk apparaat krijgt een eigen toegang, die je bij **Ouders → Apparaten** kunt ontkoppelen. Apparaten die al gekoppeld waren, staan bij **Gedeelde toegang**: koppel ze opnieuw en trek daarna de gedeelde toegang in.
+
+### 9.4 Waar je zelf op let
 - Het automatische onderhoud uit deze handleiding geldt niet voor je eigen server. Neem de bucket mee in de backups die je al maakt.
 - Bij een eigen backup en restore blijven de tokens gewoon bewaard.
 - Het moet InfluxDB **2.x** zijn, of InfluxDB Cloud met Flux. InfluxDB 1.x en InfluxDB 3 werken niet. Let op: de InfluxDB-add-on van Home Assistant is versie 1.8 en werkt dus niet.
