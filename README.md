@@ -257,3 +257,9 @@ Gebruik voor Home Board niet je beheerderstoken. Het token hierboven kan alleen 
 - Ook hier geldt: vervang het token niet (zie stap 7). Bij een eigen backup en restore blijven de tokens gewoon bewaard.
 - Het moet InfluxDB **2.x** zijn, of InfluxDB Cloud met Flux. InfluxDB 1.x en InfluxDB 3 werken niet. Let op: de InfluxDB-add-on van Home Assistant is versie 1.8 en werkt dus niet.
 - Meerdere gezinnen op één server? Geef elk gezin een eigen bucket met een eigen token. Ze kunnen dan niet bij elkaars gegevens.
+
+---
+
+## Licentie
+
+Deze scripts en de handleiding vallen onder de [MIT-licentie](https://github.com/RXTCOM/HomeBoardHelpScript/blob/main/LICENSE): je mag ze vrij gebruiken, aanpassen en delen, zolang de copyrightvermelding erbij blijft. De Home Board-app zelf valt daar niet onder; daarvoor gelden de [gebruiksvoorwaarden](https://home-board.nl/voorwaarden).

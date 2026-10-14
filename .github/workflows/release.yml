@@ -25,7 +25,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Pakket en controlegetal
         run: |
-          tar --owner=0 --group=0 --mtime='2026-01-01' -czf homeboard-server.tar.gz docker-compose.yml install.sh onderhoud.sh lib.sh README.md
+          tar --owner=0 --group=0 --mtime='2026-01-01' -czf homeboard-server.tar.gz docker-compose.yml install.sh onderhoud.sh lib.sh README.md LICENSE
           sha256sum homeboard-server.tar.gz > SHA256SUMS
           cat SHA256SUMS
       - name: Release
