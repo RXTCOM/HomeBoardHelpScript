@@ -113,12 +113,42 @@ do_restore() {
   docker restart "$CTR" >/dev/null; wait_healthy 120 && echo "Database draait weer."
 }
 
+# a lost or stolen tablet or phone: a new app token, and the old one stops working at once. The devices you keep get the
+# new one by scanning the QR code shown at the end; they keep their family key, so photos and settings stay readable.
+# Every device you keep needs app 1.43 or newer (older versions derive their key from the token).
+do_newtoken() {
+  local old bid out tok newid oldids oldid
+  old=$(envget APP_TOKEN)
+  [ -n "$old" ] || { echo "Geen APP_TOKEN in .env: draai eerst sudo ./install.sh"; exit 1; }
+  echo "Hiermee werkt het huidige token niet meer. Alle apparaten die je houdt, koppel je daarna opnieuw met de QR-code"
+  echo "(in de app: Ouders → Server → Serververbinding wijzigen → QR-code scannen). Ze hebben app 1.43 of nieuwer nodig."
+  read -r -p "Doorgaan? [j/N] " a
+  [ "$a" = j ] || exit 1
+  bid=$(docker exec "$CTR" influx bucket list --name "$(envget INFLUX_BUCKET)" --hide-headers | awk '{print $1}')
+  out=$(docker exec "$CTR" influx auth create --org "$(envget INFLUX_ORG)" --read-bucket "$bid" --write-bucket "$bid" \
+        --description "Home Board app $(date +%F)" --json)
+  tok=$(echo "$out" | sed -n 's/.*"token": *"\([^"]*\)".*/\1/p'); newid=$(echo "$out" | sed -n 's/.*"id": *"\([^"]*\)".*/\1/p' | head -1)
+  [ -n "$tok" ] && [ -n "$newid" ] || { echo "Een nieuw token maken lukte niet; er is niets veranderd."; exit 1; }
+  cp "$DIR/.env" "$DIR/.env.voor-nieuw-token"
+  sed -i "s|^APP_TOKEN=.*|APP_TOKEN=$tok|" "$DIR/.env"
+  # InfluxDB no longer shows tokens, so the old one is found by its description: every earlier "Home Board app" token goes
+  oldids=$(docker exec "$CTR" influx auth list --hide-headers | awk -F'\t' -v n="$newid" '$2 ~ /^Home Board app/ && $1 != n {print $1}')
+  for oldid in $oldids; do
+    if docker exec "$CTR" influx auth delete --id "$oldid" >/dev/null; then log "nieuw-token: oud token $oldid ingetrokken"
+    else log "nieuw-token: token $oldid niet ingetrokken; doe dat zelf via de InfluxDB-website (Load Data → API Tokens)"; fi
+  done
+  [ -n "$oldids" ] || log "nieuw-token: geen oud token gevonden; kijk zelf via de InfluxDB-website (Load Data → API Tokens)"
+  rm -f "$DIR/.env.voor-nieuw-token"
+  show_pairing
+}
+
 case "${1:-}" in
   check) lock; do_check ;;
   backup) lock; do_backup ;;
   update) lock; do_update; trim_log ;;
   status) do_status ;;
   koppelcode) show_pairing ;;
+  nieuw-token) lock; do_newtoken ;;
   restore) lock; do_restore "${2:-}" ;;
-  *) echo "Gebruik: $0 check|backup|update|status|koppelcode|restore <bestand>"; exit 1 ;;
+  *) echo "Gebruik: $0 check|backup|update|status|koppelcode|nieuw-token|restore <bestand>"; exit 1 ;;
 esac

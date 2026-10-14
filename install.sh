@@ -88,7 +88,7 @@ if [ -z "$(envget APP_TOKEN)" ]; then
   tok=$(docker exec "$CTR" influx auth create --org "$(envget INFLUX_ORG)" --read-bucket "$bid" --write-bucket "$bid" \
         --description "Home Board app" --json | sed -n 's/.*"token": *"\([^"]*\)".*/\1/p')
   [ -n "$tok" ] || { echo "Token maken lukte niet."; exit 1; }
-  printf '# token for the app (read/write on the bucket only). Never replace it: photos and settings are encrypted with it.\nAPP_TOKEN=%s\n' "$tok" >>.env
+  printf '# token for the app (read/write on the bucket only). Replace it only with ./onderhoud.sh nieuw-token.\nAPP_TOKEN=%s\n' "$tok" >>.env
   echo "Gemaakt."
 else
   echo "Bestaat al."

@@ -185,9 +185,24 @@ Alle tokens komen dan terug. Tablets en telefoons blijven gekoppeld en versleute
 
 ---
 
+## Apparaat kwijt of gestolen?
+
+Elk gekoppeld apparaat kan met het token bij de gegevens van het bord. Raak je een tablet of telefoon kwijt, maak dan een nieuw token. Het oude werkt meteen niet meer:
+
+```
+cd ~/homeboard
+sudo ./onderhoud.sh nieuw-token
+```
+
+Het script toont daarna een nieuwe QR-code. Scan die op elk apparaat dat je houdt: **Ouders → Server → Serververbinding wijzigen → 📷 QR-code scannen**. Foto's en de koppeling met Home Assistant blijven gewoon leesbaar, want die zijn versleuteld met een gezinssleutel die op je eigen apparaten staat en niet in het token.
+
+> Werk eerst alle apparaten die je houdt bij naar app-versie **1.43** of nieuwer. Oudere versies halen hun sleutel nog uit het token en kunnen na een nieuw token de foto's en de Home Assistant-koppeling niet meer openen.
+
+---
+
 ## 7. Wat je beter niet doet
 
-- **Het token van de app niet vervangen.** De app versleutelt foto's en koppelingen, zoals die met Home Assistant, met een sleutel die van dit token is afgeleid. Met een nieuw token zijn ze niet meer te openen.
+- **Het token van de app niet met de hand vervangen.** Gebruik daarvoor `sudo ./onderhoud.sh nieuw-token` (zie [Apparaat kwijt of gestolen?](#apparaat-kwijt-of-gestolen)).
 - **Niet overstappen op InfluxDB 3.** Versie 3 werkt niet met de taal die Home Board gebruikt (Flux). Het update-script blijft daarom bewust bij versie 2.
 - **Geen bewaartermijn instellen op de bucket.** Instellingen en gespaard zakgeld moeten altijd bewaard blijven.
 - **Poort 8086 niet openzetten naar internet.** Dan kan iedereen op internet proberen bij je gegevens te komen.
@@ -254,7 +269,7 @@ Gebruik voor Home Board niet je beheerderstoken. Het token hierboven kan alleen 
 
 ### 9.3 Waar je zelf op let
 - Het automatische onderhoud uit deze handleiding geldt niet voor je eigen server. Neem de bucket mee in de backups die je al maakt.
-- Ook hier geldt: vervang het token niet (zie stap 7). Bij een eigen backup en restore blijven de tokens gewoon bewaard.
+- Een token vervangen kan hier ook: maak in InfluxDB een nieuw token zoals in stap 9.1, koppel de apparaten die je houdt opnieuw (app 1.43 of nieuwer) en verwijder daarna het oude token. Bij een eigen backup en restore blijven de tokens gewoon bewaard.
 - Het moet InfluxDB **2.x** zijn, of InfluxDB Cloud met Flux. InfluxDB 1.x en InfluxDB 3 werken niet. Let op: de InfluxDB-add-on van Home Assistant is versie 1.8 en werkt dus niet.
 - Meerdere gezinnen op één server? Geef elk gezin een eigen bucket met een eigen token. Ze kunnen dan niet bij elkaars gegevens.
 
