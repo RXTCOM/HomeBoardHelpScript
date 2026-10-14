@@ -1,0 +1,34 @@
+# Home Board server: one InfluxDB 2 container. Settings come from .env (made by install.sh).
+# The image stays on major version 2: the app speaks the InfluxDB 2 API (Flux), which version 3 dropped.
+name: homeboard
+services:
+  influxdb:
+    image: influxdb:2
+    container_name: homeboard-influxdb
+    restart: unless-stopped
+    ports:
+      - "${PORT:-8086}:8086"
+    volumes:
+      - ./data:/var/lib/influxdb2
+      - ./config:/etc/influxdb2
+      - ./backups:/backups
+    environment:
+      DOCKER_INFLUXDB_INIT_MODE: setup
+      DOCKER_INFLUXDB_INIT_USERNAME: ${INFLUX_USER}
+      DOCKER_INFLUXDB_INIT_PASSWORD: ${INFLUX_PASSWORD}
+      DOCKER_INFLUXDB_INIT_ORG: ${INFLUX_ORG}
+      DOCKER_INFLUXDB_INIT_BUCKET: ${INFLUX_BUCKET}
+      DOCKER_INFLUXDB_INIT_ADMIN_TOKEN: ${INFLUX_ADMIN_TOKEN}
+      # no retention: the board keeps its settings, savings and history for good
+      INFLUXD_REPORTING_DISABLED: "true"
+    healthcheck:
+      test: ["CMD", "influx", "ping"]
+      interval: 1m
+      timeout: 10s
+      retries: 3
+      start_period: 1m
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

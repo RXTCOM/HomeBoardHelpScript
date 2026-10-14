@@ -1,0 +1,3 @@
+# made by install.sh: passwords and tokens, never in git
+.env
+backups/
