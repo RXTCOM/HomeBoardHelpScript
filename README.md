@@ -131,11 +131,18 @@ Ga verder met [4. De app koppelen](#4-de-app-koppelen).
 
 ## 4. De app koppelen
 
-1. Open Home Board op de **tablet aan de muur** en tik op **📷 QR-code scannen**.
-2. Scan de QR-code die het installatiescript liet zien.
+1. Open Home Board op de **tablet aan de muur** en kies bij de eerste start **Met mijn eigen server** → **📷 QR-code scannen**.
+2. Scan de QR-code die het installatiescript liet zien. Daarmee krijgt het gezinsbord ook het **beheer**: het kan apparaten toevoegen en ontkoppelen.
 
    Kun je niet scannen? Kopieer dan de koppelcode, de regel die begint met `{"kb":1`, en plak hem in het veld **Serveradres**.
-3. Telefoons van ouders en tablets van kinderen voeg je daarna toe vanuit de app: **Ouders → Instellingen → Apparaat toevoegen met QR-code**.
+3. Telefoons van ouders en tablets van kinderen voeg je daarna toe vanuit de app: **Ouders → Apparaat toevoegen**. Kies wie het apparaat gebruikt, geef het een naam en tik op **QR-code maken**. Elk apparaat krijgt zo een eigen toegang.
+
+### Apparaat kwijt of gestolen?
+Open **Ouders → Apparaten** op het gezinsbord of de telefoon van een ouder en tik bij het apparaat op **Ontkoppelen**. Het kan dan meteen niet meer bij het bord, en wist de gegevens van het gezin zodra het weer verbinding zoekt.
+
+Apparaten die je vóór app-versie 1.44 koppelde, delen één toegang en staan bij **Gedeelde toegang**. Die kun je niet los ontkoppelen. Koppel ze één voor één opnieuw via **Apparaat toevoegen**, en trek daarna onderaan **Gedeelde toegang** in.
+
+> Had je de server al vóór scripts-versie 1.2? Download de nieuwe versie zoals in stap 2.3 en voer `sudo ./install.sh` opnieuw uit. Het maakt dan alleen het beheertoken aan en toont een nieuwe QR-code. Scan die op het gezinsbord via **Ouders → Server → Serververbinding wijzigen**. Je gegevens blijven gewoon staan.
 
 Geen QR-code bij de hand? Bij de eerste start zoekt de app zelf naar de server op het netwerk thuis (vanaf app-versie 1.23). Hij vult dan het adres, de organisatie en de bucket in. Alleen het token vul je nog zelf in: dat staat in de koppelcode, en `sudo ./onderhoud.sh koppelcode` laat die opnieuw zien.
 
@@ -185,24 +192,9 @@ Alle tokens komen dan terug. Tablets en telefoons blijven gekoppeld en versleute
 
 ---
 
-## Apparaat kwijt of gestolen?
-
-Elk gekoppeld apparaat kan met het token bij de gegevens van het bord. Raak je een tablet of telefoon kwijt, maak dan een nieuw token. Het oude werkt meteen niet meer:
-
-```
-cd ~/homeboard
-sudo ./onderhoud.sh nieuw-token
-```
-
-Het script toont daarna een nieuwe QR-code. Scan die op elk apparaat dat je houdt: **Ouders → Server → Serververbinding wijzigen → 📷 QR-code scannen**. Foto's en de koppeling met Home Assistant blijven gewoon leesbaar, want die zijn versleuteld met een gezinssleutel die op je eigen apparaten staat en niet in het token.
-
-> Werk eerst alle apparaten die je houdt bij naar app-versie **1.43** of nieuwer. Oudere versies halen hun sleutel nog uit het token en kunnen na een nieuw token de foto's en de Home Assistant-koppeling niet meer openen.
-
----
-
 ## 7. Wat je beter niet doet
 
-- **Het token van de app niet met de hand vervangen.** Gebruik daarvoor `sudo ./onderhoud.sh nieuw-token` (zie [Apparaat kwijt of gestolen?](#apparaat-kwijt-of-gestolen)).
+- **Het token van de app niet met de hand vervangen of verwijderen.** Dan kan geen enkel apparaat meer bij het bord. Een kwijtgeraakt apparaat ontkoppel je in de app.
 - **Niet overstappen op InfluxDB 3.** Versie 3 werkt niet met de taal die Home Board gebruikt (Flux). Het update-script blijft daarom bewust bij versie 2.
 - **Geen bewaartermijn instellen op de bucket.** Instellingen en gespaard zakgeld moeten altijd bewaard blijven.
 - **Poort 8086 niet openzetten naar internet.** Dan kan iedereen op internet proberen bij je gegevens te komen.
@@ -269,7 +261,7 @@ Gebruik voor Home Board niet je beheerderstoken. Het token hierboven kan alleen 
 
 ### 9.3 Waar je zelf op let
 - Het automatische onderhoud uit deze handleiding geldt niet voor je eigen server. Neem de bucket mee in de backups die je al maakt.
-- Een token vervangen kan hier ook: maak in InfluxDB een nieuw token zoals in stap 9.1, koppel de apparaten die je houdt opnieuw (app 1.43 of nieuwer) en verwijder daarna het oude token. Bij een eigen backup en restore blijven de tokens gewoon bewaard.
+- Bij een eigen backup en restore blijven de tokens gewoon bewaard.
 - Het moet InfluxDB **2.x** zijn, of InfluxDB Cloud met Flux. InfluxDB 1.x en InfluxDB 3 werken niet. Let op: de InfluxDB-add-on van Home Assistant is versie 1.8 en werkt dus niet.
 - Meerdere gezinnen op één server? Geef elk gezin een eigen bucket met een eigen token. Ze kunnen dan niet bij elkaars gegevens.
 

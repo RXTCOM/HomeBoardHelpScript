@@ -88,7 +88,22 @@ if [ -z "$(envget APP_TOKEN)" ]; then
   tok=$(docker exec "$CTR" influx auth create --org "$(envget INFLUX_ORG)" --read-bucket "$bid" --write-bucket "$bid" \
         --description "Home Board app" --json | sed -n 's/.*"token": *"\([^"]*\)".*/\1/p')
   [ -n "$tok" ] || { echo "Token maken lukte niet."; exit 1; }
-  printf '# token for the app (read/write on the bucket only). Replace it only with ./onderhoud.sh nieuw-token.\nAPP_TOKEN=%s\n' "$tok" >>.env
+  printf '# token for the app (read/write on the bucket only). Never replace it by hand.\nAPP_TOKEN=%s\n' "$tok" >>.env
+  echo "Gemaakt."
+else
+  echo "Bestaat al."
+fi
+
+say "Beheertoken voor de app"
+if [ -z "$(envget BEHEER_TOKEN)" ]; then
+  # for parents in the app (Ouders → Apparaten): a token per device, and unlinking a lost one. It can only hand out
+  # rights it has itself (this bucket), so it can't make a stronger token; it travels only to the board and parents' phones
+  bid=$(docker exec "$CTR" influx bucket list --name "$(envget INFLUX_BUCKET)" --hide-headers | awk '{print $1}')
+  tok=$(docker exec "$CTR" influx auth create --org "$(envget INFLUX_ORG)" --read-bucket "$bid" --write-bucket "$bid" \
+        --read-authorizations --write-authorizations --read-users --write-users \
+        --description "Home Board beheer" --json | sed -n 's/.*"token": *"\([^"]*\)".*/\1/p')
+  [ -n "$tok" ] || { echo "Beheertoken maken lukte niet."; exit 1; }
+  printf '# token with which parents link and unlink devices in the app\nBEHEER_TOKEN=%s\n' "$tok" >>.env
   echo "Gemaakt."
 else
   echo "Bestaat al."

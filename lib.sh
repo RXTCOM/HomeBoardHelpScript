@@ -46,9 +46,11 @@ server_url() {
   echo "$u"
 }
 
+# for the family board; with the beheertoken ("m") a parent can add and unlink devices from the app
 pairing_code() {
-  printf '{"kb":1,"u":"%s","o":"%s","b":"%s","t":"%s","r":"board"}' \
-    "$(server_url)" "$(envget INFLUX_ORG)" "$(envget INFLUX_BUCKET)" "$(envget APP_TOKEN)"
+  local m; m=$(envget BEHEER_TOKEN)
+  printf '{"kb":1,"u":"%s","o":"%s","b":"%s","t":"%s","r":"board"%s}' \
+    "$(server_url)" "$(envget INFLUX_ORG)" "$(envget INFLUX_BUCKET)" "$(envget APP_TOKEN)" "${m:+,\"m\":\"$m\"}"
 }
 
 show_pairing() {
