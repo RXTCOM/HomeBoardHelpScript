@@ -65,21 +65,51 @@ do_backup() {
 
 do_update() {
   do_backup || { log "update: overgeslagen, want de backup lukte niet"; return 1; }
-  local old new
+  local old new backup mark
+  backup=$(ls -1t "$DIR"/backups/homeboard-*.tar.gz | head -1)
   old=$(docker image inspect -f '{{.Id}}' influxdb:2 2>/dev/null)
   if ! compose pull -q >/dev/null 2>&1; then log "update: downloaden lukte niet (geen internet?), volgende week opnieuw"; return 0; fi
   new=$(docker image inspect -f '{{.Id}}' influxdb:2 2>/dev/null)
   if [ "$old" = "$new" ]; then log "update: InfluxDB is al de nieuwste ($(version))"; return 0; fi
+  mark=$DIR/.update-start; touch "$mark"
   compose up -d >/dev/null 2>&1
   if wait_healthy 240; then
     log "update: bijgewerkt naar $(version)"
     docker image prune -f >/dev/null 2>&1
   else
     log "update: nieuwe versie start niet goed, terug naar de vorige"
-    docker tag "$old" influxdb:2 && compose up -d --force-recreate >/dev/null 2>&1
-    if wait_healthy 240; then log "update: vorige versie draait weer ($(version))"; ping_hc fail "update teruggedraaid"
+    if rollback "$old" "$mark" "$backup"; then log "update: vorige versie draait weer ($(version))"; ping_hc fail "update teruggedraaid"
     else log "update: ook de vorige versie start niet"; ping_hc fail "database start niet na update"; fi
   fi
+  rm -f "$mark"
+}
+
+# Back to the previous image and the data as it was before the update. A newer InfluxDB migrates the database on its
+# first start, and the older version then refuses it ("unknown migration"), so the image alone is not enough.
+# 2.9 and newer keep a copy from before the migration (data/influxd.bolt.pre-v<version>-upgrade.backup): that one goes
+# back first. Still down (or no copy): the backup made just before the update, on a fresh start. What the new version
+# left behind stays next to it (data.mislukte-update, config.mislukte-update).
+rollback() {
+  local old=$1 mark=$2 backup=$3 pre
+  compose stop >/dev/null 2>&1
+  docker tag "$old" influxdb:2 || return 1
+  pre=$(find "$DIR/data" -maxdepth 1 -name 'influxd.bolt.pre-v*-upgrade.backup' -newer "$mark" 2>/dev/null | head -1)
+  if [ -n "$pre" ]; then
+    log "update: database van voor de migratie terugzetten ($(basename "$pre"))"
+    cp -p "$DIR/data/influxd.bolt" "$DIR/data/influxd.bolt.mislukte-update" && cp -p "$pre" "$DIR/data/influxd.bolt"
+  fi
+  compose up -d --force-recreate >/dev/null 2>&1
+  wait_healthy 240 && return 0
+  [ -f "$backup" ] || return 1
+  log "update: backup $(basename "$backup") terugzetten op een lege database"
+  compose stop >/dev/null 2>&1
+  # config too: the image's first-start setup refuses an existing CLI config, and makes the same one from .env again
+  local d
+  for d in data config; do
+    rm -rf "$DIR/$d.mislukte-update"; mv "$DIR/$d" "$DIR/$d.mislukte-update" && mkdir "$DIR/$d" || return 1
+  done
+  compose up -d --force-recreate >/dev/null 2>&1
+  wait_healthy 240 && restore_full "$backup"
 }
 
 version() { docker exec "$CTR" influxd version 2>/dev/null | awk '{print $2}'; }
@@ -97,20 +127,28 @@ do_status() {
 do_restore() {
   local file=${1:-}
   [ -f "$file" ] || { echo "Gebruik: $0 restore backups/homeboard-JJJJ-MM-DD-UUMMSS.tar.gz"; exit 1; }
-  local tmp=$DIR/backups/restore
-  rm -rf "$tmp"; mkdir -p "$tmp"
-  tar -xzf "$file" -C "$tmp" --strip-components=1 || { echo "Kan $file niet uitpakken"; exit 1; }
-  if [ -f "$tmp/env" ] && ! cmp -s "$tmp/env" "$DIR/.env"; then
+  local env
+  env=$(tar -xzf "$file" --wildcards --strip-components=1 -O '*/env' 2>/dev/null) || { echo "Kan $file niet uitpakken"; exit 1; }
+  if [ -n "$env" ] && [ "$env" != "$(cat "$DIR/.env")" ]; then
     echo "Let op: deze backup hoort bij een andere installatie (andere tokens)."
     echo "Op nieuwe hardware herstel je met: sudo ./install.sh --herstel $file"
     read -r -p "Toch doorgaan? Dan krijgen apparaten mogelijk 'De server weigert het token'. [j/N] " a
     [ "$a" = j ] || exit 1
   fi
+  restore_full "$file" && echo "Database draait weer."
+}
+
+# a backup of do_backup back into the running database: everything, tokens included (influx restore --full)
+restore_full() {
+  local file=$1 tmp=$DIR/backups/restore rc=0
+  rm -rf "$tmp"; mkdir -p "$tmp"
+  tar -xzf "$file" -C "$tmp" --strip-components=1 || { log "restore: kan $file niet uitpakken"; rm -rf "$tmp"; return 1; }
   log "restore: $file terugzetten"
   if docker exec "$CTR" influx restore --full /backups/restore >/dev/null; then log "restore: klaar"
-  else log "restore: mislukt"; fi
+  else log "restore: mislukt"; rc=1; fi
   rm -rf "$tmp"
-  docker restart "$CTR" >/dev/null; wait_healthy 120 && echo "Database draait weer."
+  docker restart "$CTR" >/dev/null; wait_healthy 120 || rc=1
+  return $rc
 }
 
 case "${1:-}" in

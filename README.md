@@ -8,7 +8,7 @@ Deze handleiding zet een **InfluxDB 2**-database op een **Raspberry Pi** of een 
 |---|---|---|
 | Controle | elke 10 minuten | Ligt de database eruit of reageert hij niet meer, dan start hij hem opnieuw. Ook als de schijf bijna vol raakt, merkt hij dat. |
 | Backup | elke nacht | Maakt een volledige backup en bewaart de laatste 14. Op wens zet hij er ook een kopie van op een USB-schijf of NAS. |
-| Update database | elke zondagnacht | Maakt eerst een backup en installeert dan de nieuwste InfluxDB 2.x. Start die niet goed op, dan gaat hij vanzelf terug naar de vorige versie. |
+| Update database | elke zondagnacht | Maakt eerst een backup en installeert dan de nieuwste InfluxDB 2.x. Start die niet goed op, dan gaat hij vanzelf terug naar de vorige versie, met de gegevens van vlak voor de update. |
 | Update systeem | elke dag | Installeert beveiligings- en Docker-updates. Moet het systeem daarvoor opnieuw starten, dan doet het dat om 04:00. *(Raspberry Pi; een NAS werkt zichzelf bij via de eigen instellingen)* |
 | Stroomstoring | – | Komt de stroom terug, dan start alles weer vanzelf op. |
 
@@ -285,7 +285,35 @@ Om vanuit de app apparaten toe te voegen en te ontkoppelen, heeft het gezinsbord
 - Het automatische onderhoud uit deze handleiding geldt niet voor je eigen server. Neem de bucket mee in de backups die je al maakt.
 - Bij een eigen backup en restore blijven de tokens gewoon bewaard.
 - Het moet InfluxDB **2.x** zijn, of InfluxDB Cloud met Flux. InfluxDB 1.x en InfluxDB 3 werken niet. Let op: de InfluxDB-add-on van Home Assistant is versie 1.8 en werkt dus niet.
+- Gebruik `influxdb:2`, niet `latest`. Die tag wijst sinds september 2026 naar InfluxDB 3.
+- Houd InfluxDB 2 bij. Alleen de nieuwste twee versies (nu 2.9 en 2.8) krijgen beveiligingsupdates. Draait je server een oudere versie, dan meldt de app dat bij **Ouders → Server**.
 - Meerdere gezinnen op één server? Geef elk gezin een eigen bucket met een eigen token. Ze kunnen dan niet bij elkaars gegevens.
+
+### 9.5 Zelf al een InfluxDB 2 in Docker?
+Werk je zelf bij naar de nieuwste 2.x, bijvoorbeeld van 2.7 naar 2.9? Doe dan eerst dit.
+
+**Stap 1. Zoek de naam van het volume** waar de gegevens in staan:
+```
+docker inspect <container> --format '{{range .Mounts}}{{.Name}}{{end}}'
+```
+Komt er niets uit, dan staan de gegevens in een gewone map. Die vind je met `--format '{{range .Mounts}}{{.Source}}{{end}}'`. Kopieer die map dan zelf, met de container gestopt.
+
+**Stap 2. Maak een kopie van het volume**, met de container gestopt:
+```
+docker stop <container>
+docker run --rm -v <volume>:/d -v "$PWD":/b alpine tar czf /b/influxdb-voor-update.tar.gz -C /d .
+docker start <container>
+```
+
+**Stap 3. Bewaar je tokens.** Vanaf 2.9 bewaart InfluxDB tokens versleuteld, en daarna kun je ze niet meer bekijken:
+```
+docker exec <container> influx auth list > tokens-voor-update.txt
+```
+Bewaar dit bestand veilig: wie het heeft, kan bij je gegevens.
+
+**Stap 4. Werk daarna pas bij**, met `influxdb:2` als image.
+
+Terug van 2.9 naar 2.7 kan alleen met die kopie. InfluxDB 2.9 past de database aan bij de eerste start, en 2.7 start daarna niet meer op die gegevens.
 
 ---
 
