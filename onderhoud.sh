@@ -64,6 +64,8 @@ do_backup() {
 }
 
 do_update() {
+  # servers from before the id get one now (before the backup, so it holds the id too)
+  server_id >/dev/null; write_avahi
   do_backup || { log "update: overgeslagen, want de backup lukte niet"; return 1; }
   local old new backup mark
   backup=$(ls -1t "$DIR"/backups/homeboard-*.tar.gz | head -1)

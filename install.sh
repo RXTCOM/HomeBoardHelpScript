@@ -61,6 +61,7 @@ EOF
 else
   echo "Bestaande instellingen in $DIR/.env gebruikt."
 fi
+server_id >/dev/null
 chmod 600 .env
 mkdir -p data config backups && chmod 700 backups
 
@@ -142,20 +143,7 @@ OnUnitActiveSec=10min" 30
   echo "Elke 10 min controle, elke nacht een backup, elke zondag een update van InfluxDB 2."
 
   # announce the server on the home network (mDNS), so the app finds it with "Zoek op het netwerk"
-  mkdir -p /etc/avahi/services
-  cat >/etc/avahi/services/homeboard.service <<EOF
-<?xml version="1.0" standalone="no"?>
-<!DOCTYPE service-group SYSTEM "avahi-service.dtd">
-<service-group>
-  <name replace-wildcards="yes">Home Board op %h</name>
-  <service>
-    <type>_homeboard._tcp</type>
-    <port>$(envget PORT)</port>
-    <txt-record>org=$(envget INFLUX_ORG)</txt-record>
-    <txt-record>bucket=$(envget INFLUX_BUCKET)</txt-record>
-  </service>
-</service-group>
-EOF
+  write_avahi
   # only on the home network card, not on Docker's internal networks (their addresses can't be reached from a tablet)
   dev=$(ip route get 1.1.1.1 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i=="dev"){print $(i+1); exit}}')
   if [ -n "$dev" ] && [ -f /etc/avahi/avahi-daemon.conf ]; then

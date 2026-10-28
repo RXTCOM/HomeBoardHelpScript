@@ -48,8 +48,12 @@ Verder blijven de logboeken klein, zodat de schijf niet volloopt.
    - op het tabblad *Services*: **SSH inschakelen**
 4. Schrijf de schijf, sluit hem aan op de Pi en zet de Pi aan. Wacht een paar minuten.
 
-### 2.2 Een vast adres geven
-Open de instellingen van je router en zoek "DHCP-reservering" of "vast IP-adres". Geef het apparaat `homeboard` daar een vast adres, bijvoorbeeld `192.168.1.20`. De apps onthouden dit adres. Verandert het, dan kunnen ze de server niet meer vinden.
+### 2.2 Tip: een vast adres geven
+Handig, niet meer nodig. Open de instellingen van je router en zoek "DHCP-reservering" of "vast IP-adres". Geef het apparaat `homeboard` daar een vast adres, bijvoorbeeld `192.168.1.20`.
+
+Doe je dat niet en krijgt de server van de router een nieuw adres, dan zoeken de apparaten hem zelf terug. De server meldt zich op het thuisnetwerk met een eigen willekeurig nummer (`SERVER_ID` in `.env`, ook in elke backup). Een Android-tablet die de server een paar minuten niet bereikt, zoekt hem op het netwerk en stapt alleen over als het nummer, de organisatie, de bucket en de gezinssleutel kloppen. Op een iPhone of iPad, of bij een server zonder nummer, kiest een ouder **Server opnieuw zoeken** in Ouders → Server.
+
+Eerlijk gezegd: het nummer voorkomt dat een apparaat twee servers door elkaar haalt, bijvoorbeeld bij de buren of een tweede installatie. Het is geen beveiliging, want iedereen op je netwerk kan het zien. Dat een gevonden server echt de jouwe is, controleert de app met de gezinssleutel voordat er iets naartoe gaat.
 
 ### 2.3 Home Board-server installeren
 Log vanaf je computer in op de Pi. Op Windows gaat dat met PowerShell, op Mac met Terminal:
@@ -188,7 +192,7 @@ Op **nieuwe hardware**, bijvoorbeeld een nieuwe Pi, SSD of NAS: volg stap 2 of 3
 ```
 sudo ./install.sh --herstel /pad/naar/homeboard-2026-10-11-031500.tar.gz
 ```
-Alle tokens komen dan terug. Tablets en telefoons blijven gekoppeld en versleutelde foto's blijven leesbaar. Geef de nieuwe server in de router wel hetzelfde vaste adres als de oude.
+Alle tokens komen dan terug, ook het servernummer. Tablets en telefoons blijven gekoppeld en versleutelde foto's blijven leesbaar. Krijgt de nieuwe server een ander adres, dan zoeken de apparaten hem terug (zie stap 2.2); hetzelfde vaste adres als de oude geven gaat het snelst.
 
 ---
 
@@ -215,7 +219,7 @@ Voer deze uit vanuit de map van de server, bijvoorbeeld `~/homeboard`:
 
 **De app zegt "De server is niet bereikbaar"**
 - Staat de Pi of NAS aan? Kijk met `status`.
-- Heeft de server nog hetzelfde adres? Zie stap 2.2.
+- Heeft de server een nieuw adres? Een Android-tablet zoekt hem na een paar minuten zelf terug. Anders: Ouders → Server → **Server opnieuw zoeken** (zie stap 2.2).
 - Ben je buitenshuis? De server is alleen bereikbaar op het netwerk thuis.
 
 **De app zegt "De server weigert het token"**
