@@ -2,14 +2,14 @@
 
 Met een eigen server bewaart Home Board alles bij jou thuis: taken, sterren, zakgeld, foto's als bewijs en het weekmenu. Alle apparaten van het gezin delen zo één bord, en ouders krijgen meldingen op hun telefoon.
 
-Deze handleiding zet een **InfluxDB 2**-database op een **Raspberry Pi** of een **NAS**. Het werk zit vooral in de eerste keer instellen. Daarna houdt de server zichzelf bij:
+Met deze handleiding zet je een **InfluxDB 2**-database op een **Raspberry Pi** of een **NAS**. Het werk zit vooral in de eerste keer instellen. Daarna houdt de server zichzelf bij:
 
 | Wat | Wanneer | Wat er gebeurt |
 |---|---|---|
-| Controle | elke 10 minuten | Ligt de database eruit of reageert hij niet meer, dan start hij hem opnieuw. Ook als de schijf bijna vol raakt, merkt hij dat. |
-| Backup | elke nacht | Maakt een volledige backup en bewaart de laatste 14. Op wens zet hij er ook een kopie van op een USB-schijf of NAS. |
-| Update database | elke zondagnacht | Maakt eerst een backup en installeert dan de nieuwste InfluxDB 2.x. Start die niet goed op, dan gaat hij vanzelf terug naar de vorige versie, met de gegevens van vlak voor de update. |
-| Update systeem | elke dag | Installeert beveiligings- en Docker-updates. Moet het systeem daarvoor opnieuw starten, dan doet het dat om 04:00. *(Raspberry Pi; een NAS werkt zichzelf bij via de eigen instellingen)* |
+| Controle | elke 10 minuten | Ligt de database eruit of reageert hij niet meer, dan start de server hem opnieuw. Ook als de schijf bijna vol raakt, merkt hij dat. |
+| Back-up | elke nacht | Maakt een volledige back-up en bewaart de laatste 14. Als je wilt, zet hij er ook een kopie van op een USB-schijf of NAS. |
+| Database bijwerken | elke zondagnacht | Maakt eerst een back-up en installeert dan de nieuwste InfluxDB 2.x. Start die niet goed op, dan gaat hij vanzelf terug naar de vorige versie, met de gegevens van vlak voor de update. |
+| Systeem bijwerken | elke dag | Installeert beveiligings- en Docker-updates. Moet het systeem daarvoor opnieuw starten, dan doet het dat om 04:00. *(Raspberry Pi; een NAS werkt zichzelf bij via de eigen instellingen)* |
 | Stroomstoring | – | Komt de stroom terug, dan start alles weer vanzelf op. |
 
 Verder blijven de logboeken klein, zodat de schijf niet volloopt.
@@ -18,7 +18,7 @@ Verder blijven de logboeken klein, zodat de schijf niet volloopt.
 
 ---
 
-## 1. Wat heb je nodig
+## 1. Wat je nodig hebt
 
 **Raspberry Pi**
 - Een Raspberry Pi 4 of 5 met minimaal 2 GB geheugen. Een Pi 3 werkt in theorie, maar is erg krap.
@@ -49,9 +49,9 @@ Verder blijven de logboeken klein, zodat de schijf niet volloopt.
 4. Schrijf de schijf, sluit hem aan op de Pi en zet de Pi aan. Wacht een paar minuten.
 
 ### 2.2 Tip: een vast adres geven
-Handig, niet meer nodig. Open de instellingen van je router en zoek "DHCP-reservering" of "vast IP-adres". Geef het apparaat `homeboard` daar een vast adres, bijvoorbeeld `192.168.1.20`.
+Handig, maar niet meer nodig. Open de instellingen van je router en zoek "DHCP-reservering" of "vast IP-adres". Geef het apparaat `homeboard` daar een vast adres, bijvoorbeeld `192.168.1.20`.
 
-Doe je dat niet en krijgt de server van de router een nieuw adres, dan zoeken de apparaten hem zelf terug. De server meldt zich op het thuisnetwerk met een eigen willekeurig nummer (`SERVER_ID` in `.env`, ook in elke backup). Een Android-tablet die de server een paar minuten niet bereikt, zoekt hem op het netwerk en stapt alleen over als het nummer, de organisatie, de bucket en de gezinssleutel kloppen. Op een iPhone of iPad, of bij een server zonder nummer, kiest een ouder **Server opnieuw zoeken** in Ouders → Server.
+Doe je dat niet en krijgt de server van de router een nieuw adres, dan vinden de apparaten hem zelf terug. De server meldt zich op het thuisnetwerk met een eigen willekeurig nummer (`SERVER_ID` in `.env`, ook in elke back-up). Een Android-tablet die de server een paar minuten niet bereikt, vindt hem op het netwerk en stapt alleen over als het nummer, de organisatie, de bucket en de gezinssleutel kloppen. Op een iPhone of iPad, of bij een server zonder nummer, kiest een ouder **Server opnieuw zoeken** in Ouders → Server.
 
 Eerlijk gezegd: het nummer voorkomt dat een apparaat twee servers door elkaar haalt, bijvoorbeeld bij de buren of een tweede installatie. Het is geen beveiliging, want iedereen op je netwerk kan het zien. Dat een gevonden server echt de jouwe is, controleert de app met de gezinssleutel voordat er iets naartoe gaat.
 
@@ -77,7 +77,7 @@ Het script doet de rest:
 - Docker en InfluxDB 2 installeren
 - willekeurige wachtwoorden en tokens maken
 - een apart token maken voor de app, dat alleen bij de gegevens van het bord kan
-- de automatische controles, backups en updates inplannen
+- de automatische controles, back-ups en updates inplannen
 
 Aan het eind toont het script een **QR-code** en de **koppelcode**.
 
@@ -105,7 +105,7 @@ Ga verder met [4. De app koppelen](#4-de-app-koppelen).
    | Taak | Schema | Script |
    |---|---|---|
    | Home Board controle | dagelijks, elke 10 minuten herhalen | `/volume1/docker/homeboard/onderhoud.sh check` |
-   | Home Board backup | dagelijks om 03:15 | `/volume1/docker/homeboard/onderhoud.sh backup` |
+   | Home Board back-up | dagelijks om 03:15 | `/volume1/docker/homeboard/onderhoud.sh backup` |
    | Home Board update | wekelijks, zondag 04:30 | `/volume1/docker/homeboard/onderhoud.sh update` |
 
 6. Zet onder **Configuratiescherm → Bijwerken en herstellen** het automatisch installeren van belangrijke DSM-updates aan.
@@ -142,11 +142,11 @@ Ga verder met [4. De app koppelen](#4-de-app-koppelen).
 3. Telefoons van ouders en tablets van kinderen voeg je daarna toe vanuit de app: **Ouders → Apparaat toevoegen**. Kies wie het apparaat gebruikt, geef het een naam en tik op **QR-code maken**. Elk apparaat krijgt zo een eigen toegang.
 
 ### Apparaat kwijt of gestolen?
-Open **Ouders → Apparaten** op het gezinsbord of de telefoon van een ouder en tik bij het apparaat op **Ontkoppelen**. Het kan dan meteen niet meer bij het bord, en wist de gegevens van het gezin zodra het weer verbinding zoekt.
+Open **Ouders → Apparaten** op het gezinsbord of de telefoon van een ouder en tik bij het apparaat op **Ontkoppelen**. Het kan dan meteen niet meer bij het bord en wist de gegevens van het gezin zodra het weer verbinding zoekt.
 
 Apparaten die je vóór app-versie 1.44 koppelde, delen één toegang en staan bij **Gedeelde toegang**. Die kun je niet los ontkoppelen. Koppel ze één voor één opnieuw via **Apparaat toevoegen**, en trek daarna onderaan **Gedeelde toegang** in.
 
-> Had je de server al vóór scripts-versie 1.2? Download de nieuwe versie zoals in stap 2.3 en voer `sudo ./install.sh` opnieuw uit. Het maakt dan alleen het beheertoken aan en toont een nieuwe QR-code. Scan die op het gezinsbord via **Ouders → Server → Serververbinding wijzigen**. Je gegevens blijven gewoon staan.
+> Had je de server al vóór scriptversie 1.2? Download de nieuwe versie zoals in stap 2.3 en voer `sudo ./install.sh` opnieuw uit. Het maakt dan alleen het beheertoken aan en toont een nieuwe QR-code. Scan die op het gezinsbord via **Ouders → Server → Serververbinding wijzigen**. Je gegevens blijven gewoon staan.
 
 Geen QR-code bij de hand? Bij de eerste start zoekt de app zelf naar de server op het netwerk thuis (vanaf app-versie 1.23). Hij vult dan het adres, de organisatie en de bucket in. Alleen het token vul je nog zelf in: dat staat in de koppelcode, en `sudo ./onderhoud.sh koppelcode` laat die opnieuw zien.
 
@@ -161,7 +161,7 @@ sudo ~/homeboard/onderhoud.sh koppelcode
 
 ## 5. Gewaarschuwd worden als er iets mis is (optioneel)
 
-De server lost de meeste problemen zelf op. Wil je toch een e-mail krijgen als hij langer dan een half uur niets van zich laat horen, of als een backup mislukt? Gebruik dan het gratis **healthchecks.io**:
+De server lost de meeste problemen zelf op. Wil je toch een e-mail krijgen als hij langer dan een half uur niets van zich laat horen, of als een back-up mislukt? Gebruik dan het gratis **healthchecks.io**:
 
 1. Maak een account aan en daarna een check met *Period* **10 minuten** en *Grace* **30 minuten**.
 2. Kopieer de ping-URL en zet hem in het bestand `.env`:
@@ -173,14 +173,14 @@ Je krijgt dan ook een e-mail als de stroom of het internet thuis langere tijd ui
 
 ---
 
-## 6. Backups
+## 6. Back-ups
 
-- Elke nacht komt er een backup in de map `backups/`. Daarin zit ook het bestand `.env` met de tokens. **Bewaar de backups dus net zo zorgvuldig als een wachtwoord.**
-- Een tweede kopie buiten de Pi is verstandig, want valt de SSD uit, dan ben je anders ook je backups kwijt. Zet een USB-stick of een gedeelde map van de NAS in `.env`:
+- Elke nacht komt er een back-up in de map `backups/`. Daarin zit ook het bestand `.env` met de tokens. **Bewaar de back-ups dus net zo zorgvuldig als een wachtwoord.**
+- Een tweede kopie buiten de Pi is verstandig: valt de SSD uit, dan ben je anders ook je back-ups kwijt. Zet een USB-stick of een gedeelde map van de NAS in `.env`:
   ```
   BACKUP_COPY_TO=/mnt/usb/homeboard-backups
   ```
-- Op een NAS kun je de map `homeboard` ook meenemen in je gewone NAS-backup, zoals Hyper Backup bij Synology.
+- Op een NAS kun je de map `homeboard` ook meenemen in je gewone NAS-back-up, zoals Hyper Backup bij Synology.
 
 ### Terugzetten
 Op **dezelfde** server, bijvoorbeeld als er per ongeluk iets is gewist:
@@ -188,11 +188,11 @@ Op **dezelfde** server, bijvoorbeeld als er per ongeluk iets is gewist:
 sudo ./onderhoud.sh restore backups/homeboard-2026-10-11-031500.tar.gz
 ```
 
-Op **nieuwe hardware**, bijvoorbeeld een nieuwe Pi, SSD of NAS: volg stap 2 of 3, maar installeer met de backup erbij:
+Op **nieuwe hardware**, bijvoorbeeld een nieuwe Pi, SSD of NAS: volg stap 2 of 3, maar installeer met de back-up erbij:
 ```
 sudo ./install.sh --herstel /pad/naar/homeboard-2026-10-11-031500.tar.gz
 ```
-Alle tokens komen dan terug, ook het servernummer. Tablets en telefoons blijven gekoppeld en versleutelde foto's blijven leesbaar. Krijgt de nieuwe server een ander adres, dan zoeken de apparaten hem terug (zie stap 2.2); hetzelfde vaste adres als de oude geven gaat het snelst.
+Alle tokens komen dan terug, ook het servernummer. Tablets en telefoons blijven gekoppeld en versleutelde foto's blijven leesbaar. Krijgt de nieuwe server een ander adres, dan vinden de apparaten hem terug (zie stap 2.2). Het snelst gaat het als je hem hetzelfde vaste adres geeft als de oude.
 
 ---
 
@@ -211,7 +211,7 @@ Voer deze uit vanuit de map van de server, bijvoorbeeld `~/homeboard`:
 
 | Commando | Wat het doet |
 |---|---|
-| `sudo ./onderhoud.sh status` | Toont of alles draait, de versie, de laatste backup, de vrije ruimte en de laatste meldingen. |
+| `sudo ./onderhoud.sh status` | Toont of alles draait, de versie, de laatste back-up, de vrije ruimte en de laatste meldingen. |
 | `sudo ./onderhoud.sh koppelcode` | Toont de QR-code en koppelcode opnieuw. |
 | `sudo ./onderhoud.sh backup` | Maakt nu meteen een backup. |
 | `sudo ./onderhoud.sh update` | Werkt InfluxDB nu meteen bij. |
@@ -219,11 +219,11 @@ Voer deze uit vanuit de map van de server, bijvoorbeeld `~/homeboard`:
 
 **De app zegt "De server is niet bereikbaar"**
 - Staat de Pi of NAS aan? Kijk met `status`.
-- Heeft de server een nieuw adres? Een Android-tablet zoekt hem na een paar minuten zelf terug. Anders: Ouders → Server → **Server opnieuw zoeken** (zie stap 2.2).
+- Heeft de server een nieuw adres? Een Android-tablet vindt hem na een paar minuten zelf terug. Anders: Ouders → Server → **Server opnieuw zoeken** (zie stap 2.2).
 - Ben je buitenshuis? De server is alleen bereikbaar op het netwerk thuis.
 
 **De app zegt "De server weigert het token"**
-- Is de server opnieuw geïnstalleerd zonder `--herstel`? Zet dan de backup terug (zie stap 6) of koppel de apparaten opnieuw.
+- Is de server opnieuw geïnstalleerd zonder `--herstel`? Zet dan de back-up terug (zie stap 6) of koppel de apparaten opnieuw.
 
 **Inloggen op de database zelf** (niet nodig voor Home Board)
 - Ga naar `http://<adres>:8086`.
@@ -233,7 +233,7 @@ Voer deze uit vanuit de map van de server, bijvoorbeeld `~/homeboard`:
 
 ## 9. Je hebt al een InfluxDB 2
 
-Draait er bij jou al een InfluxDB 2-server, bijvoorbeeld in Docker, op je NAS of in InfluxDB Cloud? Dan kan Home Board daar gewoon in. Je maakt alleen een extra bucket en een token aan. Het installatiescript uit deze handleiding heb je dan niet nodig.
+Draait er bij jou al een InfluxDB 2-server, bijvoorbeeld in Docker, op je NAS of in InfluxDB Cloud? Dan kan Home Board die gewoon gebruiken. Je maakt alleen een extra bucket en een token aan. Het installatiescript uit deze handleiding heb je dan niet nodig.
 
 ### 9.1 Bucket en token maken
 In de webpagina van InfluxDB, meestal `http://<adres>:8086`:
@@ -282,15 +282,15 @@ Om vanuit de app apparaten toe te voegen en te ontkoppelen, heeft het gezinsbord
    ```
    {"kb":1,"u":"http://192.168.1.10:8086","o":"<organisatie>","b":"homeboard","t":"<app-token>","m":"<beheertoken>","r":"board"}
    ```
-4. **Op het gezinsbord:** **Ouders → Server → Serververbinding wijzigen**, en plak de regel in het veld **Serveradres**. De app test de verbinding, slaat alles op en start opnieuw. Je gegevens blijven gewoon staan.
+4. **Op het gezinsbord:** kies **Ouders → Server → Serververbinding wijzigen** en plak de regel in het veld **Serveradres**. De app test de verbinding, slaat alles op en start opnieuw. Je gegevens blijven gewoon staan.
 5. Voeg daarna telefoons en tablets toe via **Ouders → Apparaat toevoegen**. Elk apparaat krijgt een eigen toegang, die je bij **Ouders → Apparaten** kunt ontkoppelen. Apparaten die al gekoppeld waren, staan bij **Gedeelde toegang**: koppel ze opnieuw en trek daarna de gedeelde toegang in.
 
 ### 9.4 Waar je zelf op let
-- Het automatische onderhoud uit deze handleiding geldt niet voor je eigen server. Neem de bucket mee in de backups die je al maakt.
-- Bij een eigen backup en restore blijven de tokens gewoon bewaard.
+- Het automatische onderhoud uit deze handleiding geldt niet voor je eigen server. Neem de bucket mee in de back-ups die je al maakt.
+- Bij een eigen back-up en restore blijven de tokens gewoon bewaard.
 - Het moet InfluxDB **2.x** zijn, of InfluxDB Cloud met Flux. InfluxDB 1.x en InfluxDB 3 werken niet. Let op: de InfluxDB-add-on van Home Assistant is versie 1.8 en werkt dus niet.
 - Gebruik `influxdb:2`, niet `latest`. Die tag wijst sinds september 2026 naar InfluxDB 3.
-- Houd InfluxDB 2 bij. Alleen de nieuwste twee versies (nu 2.9 en 2.8) krijgen beveiligingsupdates. Draait je server een oudere versie, dan meldt de app dat bij **Ouders → Server**.
+- Houd InfluxDB 2 bij. Alleen de twee nieuwste versies (nu 2.9 en 2.8) krijgen beveiligingsupdates. Draait je server een oudere versie, dan meldt de app dat bij **Ouders → Server**.
 - Meerdere gezinnen op één server? Geef elk gezin een eigen bucket met een eigen token. Ze kunnen dan niet bij elkaars gegevens.
 
 ### 9.5 Zelf al een InfluxDB 2 in Docker?
