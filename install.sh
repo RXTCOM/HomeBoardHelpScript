@@ -46,7 +46,7 @@ if [ -n "$BOX" ]; then
   say "Database klaarzetten (zonder wachtwoorden)"
   compose pull -q
   say "Pakketten"
-  DEBIAN_FRONTEND=noninteractive apt-get install -y -qq python3 qrencode unattended-upgrades avahi-daemon openssh-server >/dev/null
+  DEBIAN_FRONTEND=noninteractive apt-get install -y -qq python3 qrencode unattended-upgrades avahi-daemon openssh-server sudo >/dev/null
   # the family's own login: the user is made now, its password only when the family claims the box
   id homeboard >/dev/null 2>&1 || useradd -m -s /bin/bash -G sudo -c 'Home Board' homeboard
   passwd -l homeboard >/dev/null
