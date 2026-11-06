@@ -11,7 +11,7 @@ set -euo pipefail
 cd "$DIR"
 chmod +x onderhoud.sh install.sh
 
-RESTORE= BOX= CLAIMED=
+RESTORE='' BOX='' CLAIMED=''
 [ "${1:-}" = --herstel ] && { RESTORE=$(readlink -f "${2:-}"); [ -f "$RESTORE" ] || { echo "Backup niet gevonden: ${2:-}"; exit 1; }; }
 [ "${1:-}" = --box ] && BOX=1
 [ "${1:-}" = --claimed ] && CLAIMED=1
