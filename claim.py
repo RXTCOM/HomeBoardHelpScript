@@ -5,6 +5,7 @@ A box is prepared with `install.sh --box`: Docker, InfluxDB's image and the main
 tokens yet. This service stands in on the database's port (8086) until the family enters the card's code in the app:
   GET  /health      what the app's "Zoek op het netwerk" asks every server; answers as a server waiting for its code
   POST /api/claim   {"code": "K7Q4-M2XD"} → 403 wrong code, 202 setting up, 200 the pairing code
+                    (with "login": the family's own login on the server, user homeboard and a fresh password)
                     {"code": ..., "done": true} → the app has it: the database takes over the port, this service stops
 Only with the right code does the box make its own passwords and tokens (install.sh --claimed), so whoever prepared it
 never knew them. A wrong code costs a second (one try at a time per address), which makes guessing the 8 characters
@@ -131,8 +132,14 @@ class Handler(BaseHTTPRequestHandler):
             self.send(200, {'ok': True}); finish(); return
         code = box.pairing()
         if not code: return self.send(500, {'error': 'setup'})
+        try: out = json.loads(code)
+        except Exception: return self.send(500, {'error': 'setup'})
+        # the family's own login on the server (install.sh --claimed made its password): shown once in the app
+        try:
+            with open(os.path.join(STATE, 'login')) as f: out['login'] = json.load(f)
+        except Exception: pass
         handout_started()
-        self.send(200, code.encode())
+        self.send(200, json.dumps(out).encode())
 
 def finish():
     """the database takes over port 8086: this service lets go of it, then a unit of its own finishes the job"""

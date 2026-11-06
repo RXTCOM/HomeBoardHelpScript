@@ -334,11 +334,12 @@ RXTCOM verkoopt ook een kant-en-klare server: een stille mini-pc waarop dit scri
 - Kies in de app **Ik heb een Home Board-server gekocht**. Scan daarna de koppelkaart, of vul de code in.
 - De app vindt de server op het netwerk thuis en stuurt de code.
 - Pas als de code klopt, richt de server zich in met `install.sh --claimed`. Hij maakt dan zelf alle wachtwoorden en tokens. Dat duurt een paar minuten.
-- Voordat hij wachtwoorden en tokens maakt, sluit de server de toegang van het klaarmaken af: SSH gaat uit, en het root-wachtwoord en de wachtwoorden van gebruikers gaan op slot.
+- Voordat hij wachtwoorden en tokens maakt, sluit de server de toegang af die RXTCOM bij het klaarmaken gebruikte. Root en de gebruikers van RXTCOM gaan op slot, en alle SSH-sleutels gaan weg.
+- Het gezin krijgt een eigen login: gebruiker `homeboard`, met een wachtwoord dat de server op dat moment zelf maakt. De app toont het één keer. Bewaar het goed, bijvoorbeeld in een wachtwoordmanager. Inloggen kan met een scherm en toetsenbord, of op het netwerk thuis met `ssh homeboard@<adres>`. Na het inloggen werken alle commando's uit stap 8 met `sudo`.
 - De app krijgt de koppelcode van het bord (serveradres en token). Daarna neemt de database poort 8086 over. De code van de kaart werkt dan niet meer en de wachtende dienst stopt. Meldt de app zich niet binnen 30 minuten, dan rondt de server dat zelf af.
 - Een verkeerde code kost een seconde. Zo is de code van 8 tekens niet te raden, en kan niemand het koppelen blokkeren.
 
-Vanaf dat moment is het een gewone server, zoals in de rest van deze handleiding. RXTCOM heeft geen toegang op afstand.
+Vanaf dat moment is het een gewone server, zoals in de rest van deze handleiding. RXTCOM heeft geen toegang. Wil je hulp van RXTCOM, dan kun je zelf je wachtwoord delen en het daarna veranderen met `passwd`.
 
 **Waar je zelf op let**
 - Wie de server in handen heeft, kan erbij, bijvoorbeeld met een USB-stick. Bewaar hem daarom thuis, net als je router.
