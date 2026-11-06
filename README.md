@@ -319,6 +319,26 @@ Bewaar dit bestand veilig: wie het heeft, kan bij je gegevens.
 
 Terug van 2.9 naar 2.7 kan alleen met die kopie. InfluxDB 2.9 past de database aan bij de eerste start, en 2.7 start daarna niet meer op die gegevens.
 
+## 10. De Home Board-server met koppelkaart
+
+RXTCOM verkoopt ook een kant-en-klare server: een stille mini-pc waarop dit script al draait. Hoe die werkt, staat hier. Zo kun je zelf nagaan dat RXTCOM de wachtwoorden en tokens van jouw server niet kent.
+
+**Klaarmaken (RXTCOM)**
+- Op een schone Debian-installatie draait `sudo ./install.sh --box`. Dat zet Docker, de database (nog zonder gegevens), de pakketten en het automatische onderhoud klaar.
+- Er worden nog **geen** wachtwoorden of tokens gemaakt: er komt geen `.env`.
+- Wel maakt het script een eenmalige koppelcode van 8 tekens, die op de koppelkaart komt. Op de server staat alleen een hash van die code.
+- Daarna wacht `claim.py` (dienst `homeboard-claim`) op poort 8086 op die code.
+
+**In gebruik nemen (de koper)**
+- Sluit de server aan op de router en zet hem aan.
+- Kies in de app **Ik heb de Home Board-server**. Scan daarna de koppelkaart, of vul de code in.
+- De app vindt de server op het netwerk thuis en stuurt de code.
+- Pas als de code klopt, richt de server zich in met `install.sh --claimed`. Hij maakt dan zelf alle wachtwoorden en tokens. Dat duurt een paar minuten.
+- De app krijgt de koppelcode één keer. Daarna neemt de database poort 8086 over, en zijn de koppelkaart en de wachtende dienst weg.
+- Vijf keer een verkeerde code? Dan moet je een kwartier wachten.
+
+Vanaf dat moment is het een gewone server, zoals in de rest van deze handleiding. De commando's uit stap 8 werken ook hier. Wie zich met een scherm en toetsenbord aanmeldt, kan `.env` lezen. Bewaar de server daarom thuis, net als je router.
+
 ---
 
 ## Licentie

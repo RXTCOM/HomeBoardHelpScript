@@ -153,12 +153,24 @@ restore_full() {
   return $rc
 }
 
+# a Box was claimed (claim.py): the database takes over port 8086 from claim.py, which has stopped by now; the
+# card's code is gone, the waiting service off, and the server announces itself as usual
+claim_done() {
+  compose up -d >/dev/null 2>&1
+  wait_healthy 180 || log "claim: database niet gezond na overnemen van de poort: $(health)"
+  rm -rf "$DIR/claim"
+  systemctl disable homeboard-claim >/dev/null 2>&1; rm -f /etc/systemd/system/homeboard-claim.service; systemctl daemon-reload
+  write_avahi
+  log "claim: Box in gebruik genomen"
+}
+
 case "${1:-}" in
   check) lock; do_check ;;
   backup) lock; do_backup ;;
   update) lock; do_update; trim_log ;;
   status) do_status ;;
   koppelcode) show_pairing ;;
+  claim-done) lock; claim_done ;;
   restore) lock; do_restore "${2:-}" ;;
   *) echo "Gebruik: $0 check|backup|update|status|koppelcode|restore <bestand>"; exit 1 ;;
 esac

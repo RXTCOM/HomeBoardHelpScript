@@ -69,10 +69,16 @@ write_avahi() {
   <name replace-wildcards="yes">Home Board op %h</name>
   <service>
     <type>_homeboard._tcp</type>
-    <port>$(envget PORT)</port>
-    <txt-record>id=$(server_id)</txt-record>
-    <txt-record>org=$(envget INFLUX_ORG)</txt-record>
-    <txt-record>bucket=$(envget INFLUX_BUCKET)</txt-record>
+$(if [ -f "$DIR/.env" ]; then
+  echo "    <port>$(envget PORT)</port>"
+  echo "    <txt-record>id=$(server_id)</txt-record>"
+  echo "    <txt-record>org=$(envget INFLUX_ORG)</txt-record>"
+  echo "    <txt-record>bucket=$(envget INFLUX_BUCKET)</txt-record>"
+else
+  # a Box waiting for its pairing card's code (claim.py on the database's port)
+  echo "    <port>8086</port>"
+  echo "    <txt-record>claim=1</txt-record>"
+fi)
   </service>
 </service-group>
 EOF
