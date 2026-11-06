@@ -321,22 +321,16 @@ Terug van 2.9 naar 2.7 kan alleen met die kopie. InfluxDB 2.9 past de database a
 
 ## 10. De Home Board-server met koppelkaart
 
-RXTCOM verkoopt ook een kant-en-klare server: een stille mini-pc waarop dit script al draait. Hoe die werkt, staat hier. Zo kun je zelf nagaan dat RXTCOM de wachtwoorden en tokens van jouw server niet kent.
+Heb je de kant-en-klare Home Board-server gekocht? Dan staat dit script er al op. Hier lees je wat er gebeurt als je hem koppelt. Zo kun je zelf nagaan dat RXTCOM de wachtwoorden en tokens van jouw server niet kent.
 
-**Klaarmaken (RXTCOM)**
-- Op een schone Debian-installatie draait RXTCOM `sudo ./install.sh --box`. Dat zet Docker, de database (nog zonder gegevens), de pakketten en het automatische onderhoud klaar.
-- Er worden nog **geen** wachtwoorden of tokens gemaakt: er komt geen `.env`.
-- Wel maakt het script een eenmalige koppelcode van 8 tekens, die op de koppelkaart komt. Op de server staat alleen een hash van die code.
-- Daarna wacht `claim.py` (dienst `homeboard-claim`) op poort 8086 op die code.
-
-**In gebruik nemen (de koper)**
+**Wat er bij het koppelen gebeurt**
 - Sluit de server aan op de router en zet hem aan.
-- Kies in de app **Ik heb een Home Board-server gekocht**. Scan daarna de koppelkaart, of vul de code in.
-- De app vindt de server op het netwerk thuis en stuurt de code.
-- Pas als de code klopt, richt de server zich in met `install.sh --claimed`. Hij maakt dan zelf alle wachtwoorden en tokens. Dat duurt een paar minuten.
-- Voordat hij wachtwoorden en tokens maakt, sluit de server de toegang af die RXTCOM bij het klaarmaken gebruikte. Root en de gebruikers van RXTCOM gaan op slot, en alle SSH-sleutels gaan weg.
+- Kies in de app **Home Board-server koppelen**. Scan daarna de koppelkaart, of vul de code in.
+- De app vindt de server op het netwerk thuis en stuurt de code. Tot dat moment heeft de server nog geen wachtwoorden of tokens; hij wacht alleen op die code (`claim.py`).
+- Pas als de code klopt, richt de server zich in. Hij maakt dan zelf alle wachtwoorden en tokens. Dat duurt een paar minuten.
+- Voordat hij wachtwoorden en tokens maakt, sluit de server elke toegang af die er al was: root en andere gebruikers gaan op slot, en alle SSH-sleutels gaan weg.
 - Het gezin krijgt een eigen login: gebruiker `homeboard`, met een wachtwoord dat de server op dat moment zelf maakt. De app toont het één keer. Bewaar het goed, bijvoorbeeld in een wachtwoordmanager. Inloggen kan met een scherm en toetsenbord, of op het netwerk thuis met `ssh homeboard@<adres>`. Na het inloggen werken alle commando's uit stap 8 met `sudo`.
-- De app krijgt de koppelcode van het bord (serveradres en token). Daarna neemt de database poort 8086 over. De code van de kaart werkt dan niet meer en de wachtende dienst stopt. Meldt de app zich niet binnen 30 minuten, dan rondt de server dat zelf af.
+- Daarna neemt de database het over. De code van de kaart werkt dan niet meer.
 - Een verkeerde code kost een seconde. Zo is de code van 8 tekens niet te raden, en kan niemand het koppelen blokkeren.
 
 Vanaf dat moment is het een gewone server, zoals in de rest van deze handleiding. RXTCOM heeft geen toegang. Wil je hulp van RXTCOM, dan kun je zelf je wachtwoord delen en het daarna veranderen met `passwd`.
