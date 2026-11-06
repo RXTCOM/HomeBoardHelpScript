@@ -43,6 +43,12 @@ docker version --format 'Docker {{.Server.Version}}'
 if [ -n "$BOX" ]; then
   debian || { echo "Een Box klaarmaken kan alleen op Debian (met systemd)."; exit 1; }
   [ -f .env ] && { echo "Deze server is al ingericht ($DIR/.env). Een Box maak je van een schone installatie."; exit 1; }
+  # an earlier installation (here or in another folder) still holding the database's port: claim.py could never answer
+  if docker ps -a --format '{{.Names}}' 2>/dev/null | grep -qx "$CTR" || ss -ltn 2>/dev/null | grep -q ':8086 '; then
+    echo "Poort 8086 is al in gebruik, of er staat nog een Home Board-database ($CTR)."
+    echo "Een Box maak je van een schone installatie. Verwijder eerst de oude installatie (docker rm -f $CTR) of gebruik een schone machine."
+    exit 1
+  fi
   say "Database klaarzetten (zonder wachtwoorden)"
   # only the image; the compose file needs the settings, and there are none yet
   docker pull -q "$(sed -n 's/^ *image: *//p' docker-compose.yml | head -1)" >/dev/null && echo "InfluxDB-image gedownload."

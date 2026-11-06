@@ -168,7 +168,11 @@ def main():
         hand_over(); return          # cut off halfway: finish the handover, don't fight the database for the port
     threading.Thread(target=deadline, daemon=True).start()
     while True:
-        server = ThreadingHTTPServer(('0.0.0.0', port), Handler)
+        try: server = ThreadingHTTPServer(('0.0.0.0', port), Handler)
+        except OSError as e:
+            # another program (an earlier database?) holds the port: say so in the journal, systemd tries again later
+            print(f'homeboard-claim: poort {port} is bezet ({e}); is er nog een oude installatie?', file=sys.stderr, flush=True)
+            time.sleep(30); sys.exit(1)
         server.daemon_threads = True
         server.serve_forever()
         server.server_close()
