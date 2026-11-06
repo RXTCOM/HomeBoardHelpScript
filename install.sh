@@ -59,6 +59,7 @@ Restart=on-failure
 [Install]
 WantedBy=multi-user.target
 UNIT
+  echo "Let op: SSH, het root-wachtwoord en de wachtwoorden van gebruikers gaan op slot zodra de koper de code invult."
   code=$(python3 claim.py new)
   write_avahi
   dev=$(ip route get 1.1.1.1 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i=="dev"){print $(i+1); exit}}')
@@ -77,6 +78,16 @@ UNIT
   echo "QR-code als bestand: $DIR/claim/koppelkaart-qr.svg (print hem op de kaart en verwijder het bestand daarna)"
   echo "De code staat verder nergens leesbaar op deze server, alleen als hash. Kwijt? Maak een nieuwe: sudo $DIR/install.sh --box"
   exit 0
+fi
+
+if [ -n "$CLAIMED" ]; then
+  say "Toegang van het klaarmaken afsluiten"
+  # whoever prepared the box (RXTCOM) keeps no way in: no SSH, no password for root or the users made then, no keys
+  systemctl disable --now ssh ssh.socket sshd >/dev/null 2>&1 || true
+  passwd -l root >/dev/null 2>&1 || true
+  awk -F: '$3>=1000 && $3<65534 {print $1}' /etc/passwd | while read -r u; do usermod -L -e 1 "$u" >/dev/null 2>&1 || true; done
+  rm -f /root/.ssh/authorized_keys /home/*/.ssh/authorized_keys
+  echo "SSH uit, wachtwoorden van het klaarmaken op slot."
 fi
 
 say "Instellingen"
@@ -187,7 +198,8 @@ OnUnitActiveSec=10min" 30
   unit backup "nachtelijke backup" backup "OnCalendar=*-*-* 03:15" 15min
   unit update "wekelijkse update" update "OnCalendar=Sun 04:30" 30min
   systemctl daemon-reload
-  systemctl enable --now homeboard-check.timer homeboard-backup.timer homeboard-update.timer >/dev/null 2>&1
+  # a Box being claimed: the timers start with onderhoud.sh claim-done, once the database has port 8086 (claim.py holds it now)
+  [ -n "$CLAIMED" ] || systemctl enable --now homeboard-check.timer homeboard-backup.timer homeboard-update.timer >/dev/null 2>&1
   echo "Elke 10 min controle, elke nacht een backup, elke zondag een update van InfluxDB 2."
 
   # announce the server on the home network (mDNS), so the app finds it with "Zoek op het netwerk"

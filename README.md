@@ -324,20 +324,26 @@ Terug van 2.9 naar 2.7 kan alleen met die kopie. InfluxDB 2.9 past de database a
 RXTCOM verkoopt ook een kant-en-klare server: een stille mini-pc waarop dit script al draait. Hoe die werkt, staat hier. Zo kun je zelf nagaan dat RXTCOM de wachtwoorden en tokens van jouw server niet kent.
 
 **Klaarmaken (RXTCOM)**
-- Op een schone Debian-installatie draait `sudo ./install.sh --box`. Dat zet Docker, de database (nog zonder gegevens), de pakketten en het automatische onderhoud klaar.
+- Op een schone Debian-installatie draait RXTCOM `sudo ./install.sh --box`. Dat zet Docker, de database (nog zonder gegevens), de pakketten en het automatische onderhoud klaar.
 - Er worden nog **geen** wachtwoorden of tokens gemaakt: er komt geen `.env`.
 - Wel maakt het script een eenmalige koppelcode van 8 tekens, die op de koppelkaart komt. Op de server staat alleen een hash van die code.
 - Daarna wacht `claim.py` (dienst `homeboard-claim`) op poort 8086 op die code.
 
 **In gebruik nemen (de koper)**
 - Sluit de server aan op de router en zet hem aan.
-- Kies in de app **Ik heb de Home Board-server**. Scan daarna de koppelkaart, of vul de code in.
+- Kies in de app **Ik heb een Home Board-server gekocht**. Scan daarna de koppelkaart, of vul de code in.
 - De app vindt de server op het netwerk thuis en stuurt de code.
 - Pas als de code klopt, richt de server zich in met `install.sh --claimed`. Hij maakt dan zelf alle wachtwoorden en tokens. Dat duurt een paar minuten.
-- De app krijgt de koppelcode één keer. Daarna neemt de database poort 8086 over, en zijn de koppelkaart en de wachtende dienst weg.
-- Vijf keer een verkeerde code? Dan moet je een kwartier wachten.
+- Voordat hij wachtwoorden en tokens maakt, sluit de server de toegang van het klaarmaken af: SSH gaat uit, en het root-wachtwoord en de wachtwoorden van gebruikers gaan op slot.
+- De app krijgt de koppelcode van het bord (serveradres en token). Daarna neemt de database poort 8086 over. De code van de kaart werkt dan niet meer en de wachtende dienst stopt. Meldt de app zich niet binnen 30 minuten, dan rondt de server dat zelf af.
+- Een verkeerde code kost een seconde. Zo is de code van 8 tekens niet te raden, en kan niemand het koppelen blokkeren.
 
-Vanaf dat moment is het een gewone server, zoals in de rest van deze handleiding. De commando's uit stap 8 werken ook hier. Wie zich met een scherm en toetsenbord aanmeldt, kan `.env` lezen. Bewaar de server daarom thuis, net als je router.
+Vanaf dat moment is het een gewone server, zoals in de rest van deze handleiding. RXTCOM heeft geen toegang op afstand.
+
+**Waar je zelf op let**
+- Wie de server in handen heeft, kan erbij, bijvoorbeeld met een USB-stick. Bewaar hem daarom thuis, net als je router.
+- Koppel de server op je eigen thuisnetwerk, zonder vreemden op je wifi. Iemand op hetzelfde netwerk die zich op dat moment voordoet als de server, zou de code kunnen onderscheppen. De app controleert wel dat de koppelcode van hetzelfde adres komt als de server die hij vond.
+- Je vertrouwt de software van RXTCOM, net als bij de app. Die staat openbaar in deze repository.
 
 ---
 

@@ -4,19 +4,21 @@
 A box is prepared with `install.sh --box`: Docker, InfluxDB's image and the maintenance are on it, but no passwords or
 tokens yet. This service stands in on the database's port (8086) until the family enters the card's code in the app:
   GET  /health      what the app's "Zoek op het netwerk" asks every server; answers as a server waiting for its code
-  POST /api/claim   {"code": "K7Q4-M2XD"} → 403 wrong code, 429 too many tries, 202 setting up, 200 the pairing code
+  POST /api/claim   {"code": "K7Q4-M2XD"} → 403 wrong code, 202 setting up, 200 the pairing code
                     {"code": ..., "done": true} → the app has it: the database takes over the port, this service stops
 Only with the right code does the box make its own passwords and tokens (install.sh --claimed), so whoever prepared it
-never knew them. The card's code works once: after "done" it is gone. Five wrong codes lock it for 15 minutes.
+never knew them. A wrong code costs a second (one try at a time per address), which makes guessing the 8 characters
+(32^8 codes) hopeless without locking the family out. The pairing code is handed out until "done", at most 30 minutes
+after the first time; then the box finishes by itself and the card's code is gone.
 Run by systemd (homeboard-claim.service). `claim.py new` makes a new code and prints it (for the card).
 Standard library only (Debian's python3)."""
 import hashlib, hmac, json, os, secrets, subprocess, sys, threading, time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 DIR = os.path.dirname(os.path.abspath(__file__))
-STATE = os.path.join(DIR, 'claim')            # code.hash, fails.json, setup.log; gone once the box is claimed
+STATE = os.path.join(DIR, 'claim')            # code.hash, ready, setup.log; gone once the box is claimed
 ALPHABET = '0123456789ABCDEFGHJKMNPQRSTVWXYZ'  # Crockford: no I, L, O, U
-LEN, MAX_FAILS, LOCK_S = 8, 5, 15 * 60
+LEN, WRONG_DELAY, HANDOUT_S = 8, 1.0, 30 * 60
 
 def norm(code):
     """K7Q4-m2xd, K7Q4 M2XD → K7Q4M2XD; O→0 and I/L→1 as Crockford reads them"""
@@ -30,19 +32,18 @@ def new_code():
     os.makedirs(STATE, mode=0o700, exist_ok=True)
     code = ''.join(secrets.choice(ALPHABET) for _ in range(LEN))
     salt = secrets.token_hex(16)
-    with open(os.path.join(STATE, 'code.hash'), 'w') as f: f.write(salt + ' ' + digest(code, salt))
-    os.chmod(os.path.join(STATE, 'code.hash'), 0o600)
-    try: os.remove(os.path.join(STATE, 'fails.json'))
-    except FileNotFoundError: pass
+    path = os.path.join(STATE, 'code.hash')
+    with open(path + '.tmp', 'w') as f: f.write(salt + ' ' + digest(code, salt)); f.flush(); os.fsync(f.fileno())
+    os.chmod(path + '.tmp', 0o600); os.replace(path + '.tmp', path)
+    for old in ('ready', 'handout'):
+        try: os.remove(os.path.join(STATE, old))
+        except FileNotFoundError: pass
     return code[:4] + '-' + code[4:]
 
-def read_json(name, default):
-    try:
-        with open(os.path.join(STATE, name)) as f: return json.load(f)
-    except Exception: return default
-
-def write_json(name, value):
-    with open(os.path.join(STATE, name), 'w') as f: json.dump(value, f)
+def database_on_port():
+    """the database already holds port 8086 (the handover was cut off, e.g. by a power cut): nothing left to wait for"""
+    out = subprocess.run(['docker', 'port', 'homeboard-influxdb', '8086/tcp'], capture_output=True, text=True)
+    return out.returncode == 0 and any(l.strip().startswith(('0.0.0.0:8086', '[::]:8086')) for l in out.stdout.splitlines())
 
 class Box:
     """the setup in the background, one at a time; state: idle | busy | done | failed"""
@@ -68,10 +69,25 @@ class Box:
 
 box = Box()
 server = None
+finishing = threading.Event()
+ip_locks, ip_locks_lock = {}, threading.Lock()
+
+def ip_lock(ip):
+    with ip_locks_lock: return ip_locks.setdefault(ip, threading.Lock())
+
+def handout_started():
+    """the time the pairing code was first handed out (kept on disk, so a restart doesn't reset the 30 minutes)"""
+    p = os.path.join(STATE, 'handout')
+    try: return float(open(p).read())
+    except Exception:
+        t = time.time()
+        with open(p, 'w') as f: f.write(str(t))
+        return t
 
 class Handler(BaseHTTPRequestHandler):
     server_version = 'HomeBoardClaim'
     sys_version = ''
+    timeout = 10   # a client that sends nothing keeps no thread
 
     def log_message(self, *a): pass  # no addresses or codes in the journal
 
@@ -94,47 +110,63 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         if self.path != '/api/claim': return self.send(404, {'error': 'not found'})
-        n = int(self.headers.get('Content-Length') or 0)
-        if n > 1024: return self.send(413, {'error': 'too large'})
+        try: n = int(self.headers.get('Content-Length') or 0)
+        except ValueError: return self.send(400, {'error': 'length'})
+        if not 0 <= n <= 1024: return self.send(413, {'error': 'too large'})
         try: req = json.loads(self.rfile.read(n) or b'{}')
         except Exception: return self.send(400, {'error': 'json'})
-        fails = read_json('fails.json', {'n': 0, 'until': 0})
-        now = time.time()
-        if fails.get('until', 0) > now: return self.send(429, {'error': 'wait', 's': int(fails['until'] - now) + 1})
+        if not isinstance(req, dict) or not isinstance(req.get('code'), str): return self.send(400, {'error': 'code'})
+        if finishing.is_set(): return self.send(410, {'error': 'claimed'})
         try:
             with open(os.path.join(STATE, 'code.hash')) as f: salt, want = f.read().split()
         except Exception: return self.send(410, {'error': 'claimed'})
-        if not hmac.compare_digest(digest(req.get('code', ''), salt), want):
-            fails['n'] = fails.get('n', 0) + 1
-            if fails['n'] >= MAX_FAILS: fails = {'n': 0, 'until': now + LOCK_S}
-            write_json('fails.json', fails)
-            return self.send(403, {'error': 'code'})
-        write_json('fails.json', {'n': 0, 'until': 0})
+        # one try at a time per address, and a wrong one costs a second: no lockout that a guest could keep going
+        with ip_lock(self.client_address[0]):
+            if not hmac.compare_digest(digest(req['code'], salt), want):
+                time.sleep(WRONG_DELAY)
+                return self.send(403, {'error': 'code'})
         if box.state in ('idle', 'failed'): box.start(); return self.send(202, {'state': 'busy'})
         if box.state == 'busy': return self.send(202, {'state': 'busy'})
-        if req.get('done'):
-            self.send(200, {'ok': True})
-            threading.Thread(target=finish, daemon=True).start()
-            return
+        if req.get('done') is True:
+            self.send(200, {'ok': True}); finish(); return
         code = box.pairing()
         if not code: return self.send(500, {'error': 'setup'})
+        handout_started()
         self.send(200, code.encode())
 
 def finish():
-    """the database takes over port 8086: this service lets go of it first, then a separate unit finishes the job"""
-    time.sleep(0.5)
-    server.shutdown(); server.server_close()
-    subprocess.run(['systemd-run', '--no-block', '--unit=homeboard-claim-done', '--collect', os.path.join(DIR, 'onderhoud.sh'), 'claim-done'])
-    os._exit(0)
+    """the database takes over port 8086: this service lets go of it, then a unit of its own finishes the job"""
+    if finishing.is_set(): return
+    finishing.set()
+    threading.Thread(target=lambda: (time.sleep(0.5), server.shutdown()), daemon=True).start()
+
+def hand_over():
+    """after serve_forever returned: the port is free; a separate unit (it outlives this one) does onderhoud.sh claim-done"""
+    unit = 'homeboard-claim-done-%d' % int(time.time())
+    return subprocess.run(['systemd-run', '--no-block', '--collect', '--unit=' + unit, os.path.join(DIR, 'onderhoud.sh'), 'claim-done']).returncode == 0
+
+def deadline():
+    """the pairing code goes out until "done", at most 30 minutes after the first time: then the box finishes by itself"""
+    while not finishing.is_set():
+        p = os.path.join(STATE, 'handout')
+        if os.path.exists(p) and time.time() - handout_started() > HANDOUT_S: finish()
+        time.sleep(20)
 
 def main():
     global server
     if sys.argv[1:2] == ['new']:
         print(new_code()); return
     port = int(sys.argv[1]) if len(sys.argv) > 1 else 8086
-    server = ThreadingHTTPServer(('0.0.0.0', port), Handler)
-    server.daemon_threads = True
-    server.serve_forever()
+    if os.path.exists(os.path.join(STATE, 'ready')) and database_on_port():
+        hand_over(); return          # cut off halfway: finish the handover, don't fight the database for the port
+    threading.Thread(target=deadline, daemon=True).start()
+    while True:
+        server = ThreadingHTTPServer(('0.0.0.0', port), Handler)
+        server.daemon_threads = True
+        server.serve_forever()
+        server.server_close()
+        if hand_over(): return
+        finishing.clear()            # the handover couldn't start: keep the port and keep answering
 
 if __name__ == '__main__':
     main()
