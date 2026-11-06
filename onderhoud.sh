@@ -153,12 +153,32 @@ restore_full() {
   return $rc
 }
 
+# a Box was claimed (claim.py): the database takes over port 8086 from claim.py, which has stopped by now; the
+# card's code is gone, the waiting service off, and the server announces itself as usual
+claim_done() {
+  # waits for a check or update that is running (up to 10 minutes) instead of skipping: this must happen
+  local t=0; until mkdir "$LOCK" 2>/dev/null; do t=$((t + 5)); [ $t -ge 600 ] && rmdir "$LOCK" 2>/dev/null; sleep 5; done
+  trap 'rmdir "$LOCK" 2>/dev/null' EXIT
+  compose up -d >/dev/null 2>&1
+  if ! wait_healthy 240; then
+    # the card and the waiting service stay: at the next start claim.py sees the database on the port and tries again
+    log "claim: database niet gezond na overnemen van de poort: $(health)"; return 1
+  fi
+  systemctl disable homeboard-claim >/dev/null 2>&1; rm -f /etc/systemd/system/homeboard-claim.service
+  systemctl daemon-reload
+  systemctl enable --now homeboard-check.timer homeboard-backup.timer homeboard-update.timer >/dev/null 2>&1
+  rm -rf "$DIR/claim"
+  write_avahi
+  log "claim: Box in gebruik genomen"
+}
+
 case "${1:-}" in
   check) lock; do_check ;;
   backup) lock; do_backup ;;
   update) lock; do_update; trim_log ;;
   status) do_status ;;
   koppelcode) show_pairing ;;
+  claim-done) claim_done ;;
   restore) lock; do_restore "${2:-}" ;;
   *) echo "Gebruik: $0 check|backup|update|status|koppelcode|restore <bestand>"; exit 1 ;;
 esac

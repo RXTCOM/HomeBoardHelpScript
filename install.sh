@@ -2,14 +2,20 @@
 # Installs the Home Board server: InfluxDB 2 in Docker, plus everything that keeps it running by itself.
 #   sudo ./install.sh                         new installation (safe to run again: it only adds what's missing)
 #   sudo ./install.sh --herstel <backup>      new hardware: restore a backup made by onderhoud.sh, tokens included
+#   sudo ./install.sh --box                   prepare a Home Board Box: everything but passwords and tokens; prints the
+#                                             code for the pairing card (claim.py waits for it on the home network)
+#   (install.sh --claimed                     run by claim.py once the family entered that code: the normal installation)
 set -euo pipefail
 [ "$(id -u)" = 0 ] || exec sudo bash "$(readlink -f "$0")" "$@"
 . "$(dirname "$(readlink -f "$0")")/lib.sh"
 cd "$DIR"
 chmod +x onderhoud.sh install.sh
 
-RESTORE=
+RESTORE= BOX= CLAIMED=
 [ "${1:-}" = --herstel ] && { RESTORE=$(readlink -f "${2:-}"); [ -f "$RESTORE" ] || { echo "Backup niet gevonden: ${2:-}"; exit 1; }; }
+[ "${1:-}" = --box ] && BOX=1
+[ "${1:-}" = --claimed ] && CLAIMED=1
+chmod +x claim.py
 
 say() { printf '\n\033[1m== %s\033[0m\n' "$*"; }
 rnd() { head -c 64 /dev/urandom | base64 | tr -dc 'A-Za-z0-9' | head -c "$1"; }
@@ -33,6 +39,69 @@ if ! command -v docker >/dev/null; then
 fi
 debian && systemctl enable --now docker >/dev/null 2>&1 || true
 docker version --format 'Docker {{.Server.Version}}'
+
+if [ -n "$BOX" ]; then
+  debian || { echo "Een Box klaarmaken kan alleen op Debian (met systemd)."; exit 1; }
+  [ -f .env ] && { echo "Deze server is al ingericht ($DIR/.env). Een Box maak je van een schone installatie."; exit 1; }
+  say "Database klaarzetten (zonder wachtwoorden)"
+  # only the image; the compose file needs the settings, and there are none yet
+  docker pull -q "$(sed -n 's/^ *image: *//p' docker-compose.yml | head -1)" >/dev/null && echo "InfluxDB-image gedownload."
+  say "Pakketten"
+  DEBIAN_FRONTEND=noninteractive apt-get install -y -qq python3 qrencode unattended-upgrades avahi-daemon openssh-server sudo >/dev/null
+  # the family's own login: the user is made now, its password only when the family claims the box
+  id homeboard >/dev/null 2>&1 || useradd -m -s /bin/bash -G sudo -c 'Home Board' homeboard
+  passwd -l homeboard >/dev/null
+  say "Wachten op de koppelcode"
+  cat >/etc/systemd/system/homeboard-claim.service <<UNIT
+[Unit]
+Description=Home Board: wacht op de koppelcode van de kaart
+After=network-online.target
+Wants=network-online.target
+[Service]
+ExecStart=/usr/bin/python3 $DIR/claim.py 8086
+Restart=on-failure
+[Install]
+WantedBy=multi-user.target
+UNIT
+  echo "Let op: het root-wachtwoord, de wachtwoorden van andere gebruikers en alle SSH-sleutels gaan op slot zodra de koper de code invult."
+  echo "De koper krijgt dan een eigen login (gebruiker homeboard) met een wachtwoord dat de server zelf maakt."
+  code=$(python3 claim.py new)
+  write_avahi
+  dev=$(ip route get 1.1.1.1 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i=="dev"){print $(i+1); exit}}')
+  if [ -n "$dev" ] && [ -f /etc/avahi/avahi-daemon.conf ]; then
+    sed -i '/^#\?allow-interfaces=/d' /etc/avahi/avahi-daemon.conf
+    sed -i "/^\[server\]/a allow-interfaces=$dev" /etc/avahi/avahi-daemon.conf
+  fi
+  systemctl daemon-reload
+  systemctl enable avahi-daemon homeboard-claim >/dev/null 2>&1
+  systemctl restart avahi-daemon homeboard-claim
+  card="{\"kb\":1,\"claim\":\"${code//-/}\"}"
+  qrencode -t SVG -m 2 -o "$DIR/claim/koppelkaart-qr.svg" "$card"
+  say "Klaar voor verzending"
+  echo "Koppelcode voor de kaart:  $code"
+  qrencode -t ansiutf8 -m 2 "$card"
+  echo "QR-code als bestand: $DIR/claim/koppelkaart-qr.svg (print hem op de kaart en verwijder het bestand daarna)"
+  echo "De code staat verder nergens leesbaar op deze server, alleen als hash. Kwijt? Maak een nieuwe: sudo $DIR/install.sh --box"
+  exit 0
+fi
+
+if [ -n "$CLAIMED" ]; then
+  say "Toegang: alleen het gezin"
+  # whoever prepared the box (RXTCOM) keeps no way in: root and every other user locked, all SSH keys gone. The family
+  # gets its own login, user homeboard (with sudo), with a password made here and now; the app shows it once
+  passwd -l root >/dev/null 2>&1 || true
+  awk -F: '$3>=1000 && $3<65534 && $1!="homeboard" {print $1}' /etc/passwd | while read -r u; do usermod -L -e 1 "$u" >/dev/null 2>&1 || true; done
+  rm -f /root/.ssh/authorized_keys /home/*/.ssh/authorized_keys
+  id homeboard >/dev/null 2>&1 || useradd -m -s /bin/bash -G sudo -c 'Home Board' homeboard
+  pw=$(python3 -c "import secrets;a='23456789ABCDEFGHJKMNPQRSTVWXYZ';s=''.join(secrets.choice(a) for _ in range(16));print('-'.join(s[i:i+4] for i in range(0,16,4)))")
+  echo "homeboard:$pw" | chpasswd && usermod -U -e '' homeboard
+  ( umask 077; printf '{"user":"homeboard","pw":"%s"}' "$pw" >"$DIR/claim/login" )
+  # SSH on the home network: only that user, with its password; no root
+  mkdir -p /etc/ssh/sshd_config.d
+  printf 'PermitRootLogin no\nAllowUsers homeboard\nPasswordAuthentication yes\n' >/etc/ssh/sshd_config.d/homeboard.conf
+  systemctl enable --now ssh >/dev/null 2>&1 || true; systemctl restart ssh >/dev/null 2>&1 || true
+  echo "Alleen nog de gebruiker homeboard, met een nieuw wachtwoord; SSH alleen voor die gebruiker."
+fi
 
 say "Instellingen"
 if [ -n "$RESTORE" ]; then
@@ -67,6 +136,9 @@ mkdir -p data config backups && chmod 700 backups
 
 say "Database starten"
 compose pull -q || echo "Downloaden lukte niet; de versie die er al is wordt gebruikt."
+# a Box being claimed: the database only reachable on this device for now; claim.py still answers on the home network
+# and hands the port over when the app has its code (onderhoud.sh claim-done)
+[ -n "$CLAIMED" ] && export PORT=127.0.0.1:18086
 compose up -d
 if ! wait_healthy 240; then echo "De database start niet. Kijk met: docker logs $CTR"; exit 1; fi
 echo "InfluxDB $(docker exec "$CTR" influxd version | awk '{print $2}') draait."
@@ -139,7 +211,8 @@ OnUnitActiveSec=10min" 30
   unit backup "nachtelijke backup" backup "OnCalendar=*-*-* 03:15" 15min
   unit update "wekelijkse update" update "OnCalendar=Sun 04:30" 30min
   systemctl daemon-reload
-  systemctl enable --now homeboard-check.timer homeboard-backup.timer homeboard-update.timer >/dev/null 2>&1
+  # a Box being claimed: the timers start with onderhoud.sh claim-done, once the database has port 8086 (claim.py holds it now)
+  [ -n "$CLAIMED" ] || systemctl enable --now homeboard-check.timer homeboard-backup.timer homeboard-update.timer >/dev/null 2>&1
   echo "Elke 10 min controle, elke nacht een backup, elke zondag een update van InfluxDB 2."
 
   # announce the server on the home network (mDNS), so the app finds it with "Zoek op het netwerk"
@@ -184,6 +257,8 @@ else
   echo "  elke nacht      : $DIR/onderhoud.sh backup"
   echo "  elke week       : $DIR/onderhoud.sh update"
 fi
+
+[ -n "$CLAIMED" ] && { log "install: Box ingericht met de koppelcode"; exit 0; }
 
 say "Klaar"
 echo "Serveradres : $(server_url)"
