@@ -44,7 +44,8 @@ if [ -n "$BOX" ]; then
   debian || { echo "Een Box klaarmaken kan alleen op Debian (met systemd)."; exit 1; }
   [ -f .env ] && { echo "Deze server is al ingericht ($DIR/.env). Een Box maak je van een schone installatie."; exit 1; }
   say "Database klaarzetten (zonder wachtwoorden)"
-  compose pull -q
+  # only the image; the compose file needs the settings, and there are none yet
+  docker pull -q "$(sed -n 's/^ *image: *//p' docker-compose.yml | head -1)" >/dev/null && echo "InfluxDB-image gedownload."
   say "Pakketten"
   DEBIAN_FRONTEND=noninteractive apt-get install -y -qq python3 qrencode unattended-upgrades avahi-daemon openssh-server sudo >/dev/null
   # the family's own login: the user is made now, its password only when the family claims the box
